@@ -95,7 +95,9 @@ architecture behavioral of cpu is
     state_loop_end_1,
     state_loop_end_2,
     state_loop_end_3,
-    state_loop_end_4
+    state_loop_end_4,
+    state_break_1,
+    state_break_2
   );
 
   signal state : t_state;
@@ -258,6 +260,9 @@ begin
 
           when "01011101" =>
             next_state <= state_loop_end_1;
+
+          when "01111110" =>
+            next_state <= state_break_1;
           
 
           when others =>
@@ -272,6 +277,7 @@ begin
         ptr_dec <= '1';
         next_state <= state_next_symbol;
 
+
       when state_inc_value_1 =>
         mx1_sel <= '0';
         next_state <= state_inc_value_2;
@@ -282,6 +288,7 @@ begin
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
 
+
       when state_dec_value_1 =>
         mx1_sel <= '0';
         next_state <= state_dec_value_2;
@@ -291,6 +298,7 @@ begin
         mx2_sel <= "01";
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
+
 
       when state_write_1 =>
         if (OUT_BUSY = '0') then
@@ -305,6 +313,7 @@ begin
         OUT_WE <= '1';
         OUT_DATA <= DATA_RDATA;
         next_state <= state_next_symbol;
+
 
       when state_read_1 =>
         IN_REQ <= '1';
@@ -321,6 +330,7 @@ begin
         mx2_sel <= "00";
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
+
 
       when state_loop_start_1 =>
         pc_inc <= '1';
@@ -353,6 +363,7 @@ begin
           cnt_dec <= '1';
         end if;
 
+
       when state_loop_end_1 =>
         mx1_sel <= '0';
         cnt_rst <= '1';
@@ -384,6 +395,18 @@ begin
           cnt_inc <= '1';
         elsif (DATA_RDATA = "01011011") then
           cnt_dec <= '1';
+        end if;
+
+
+      when state_break_1 => 
+        pc_inc <= '1';
+        next_state <= state_break_2;
+
+      when state_break_2 =>
+        if (DATA_RDATA = "01011101") then
+          next_state <= state_predecode;
+        else
+          next_state <= state_break_1;
         end if;
 
 
