@@ -138,14 +138,16 @@ architecture behavioral of cpu is
     state_dec_ptr,
     state_inc_value_1,
     state_inc_value_2,
-    state_inc_value_3,
     state_dec_value_1,
     state_dec_value_2,
-    state_dec_value_3,
     state_write_1,
     state_write_2,
     state_read_1,
-    state_read_2
+    state_read_2,
+    state_loop_start_1,
+    state_loop_start_2,
+    state_loop_end_1,
+    state_loop_end_2
   );
 
   signal state : t_state;
@@ -339,11 +341,6 @@ begin
       when state_inc_value_2 =>
         mx1_sel <= '0';
         mx2_sel <= "10";
-        next_state <= state_inc_value_3;
-
-      when state_inc_value_3 => -- can be merged with state_inc_value_2
-        mx1_sel <= '0';
-        mx2_sel <= "10";
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
 
@@ -352,11 +349,6 @@ begin
         next_state <= state_dec_value_2;
 
       when state_dec_value_2 =>
-        mx1_sel <= '0';
-        mx2_sel <= "01";
-        next_state <= state_dec_value_3;
-
-      when state_dec_value_3 => -- can be merged with state_dec_value_2
         mx1_sel <= '0';
         mx2_sel <= "01";
         DATA_RDWR <= '1';
