@@ -91,11 +91,11 @@ architecture behavioral of cpu is
     state_loop_start_1,
     state_loop_start_2,
     state_loop_start_3,
+    state_loop_start_4,
     state_loop_end_1,
     state_loop_end_2,
     state_loop_end_3,
-    state_loop_end_4,
-    state_loop_end_5
+    state_loop_end_4
   );
 
   signal state : t_state;
@@ -341,13 +341,16 @@ begin
         if (cnt_out = "00000000") then
           next_state <= state_predecode;
         else
-          if (DATA_RDATA = "01011011") then
-            cnt_inc <= '1';
-          elsif (DATA_RDATA = "01011101") then
-            cnt_dec <= '1';
-          end if;
           pc_inc <= '1';
-          next_state <= state_loop_start_3;
+          next_state <= state_loop_start_4;
+        end if;
+
+      when state_loop_start_4 =>
+        next_state <= state_loop_start_3;
+        if (DATA_RDATA = "01011011") then
+          cnt_inc <= '1';
+        elsif (DATA_RDATA = "01011101") then
+          cnt_dec <= '1';
         end if;
 
       when state_loop_end_1 =>
