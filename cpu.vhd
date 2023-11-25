@@ -129,7 +129,8 @@ architecture behavioral of cpu is
 
   type t_state is (
     state_startup,
-    state_init,
+    state_init_1,
+    state_init_2,
     state_next_symbol,
     state_decode,
     state_end,
@@ -137,7 +138,14 @@ architecture behavioral of cpu is
     state_dec_ptr,
     state_inc_value_1,
     state_inc_value_2,
-    state_dec_value
+    state_inc_value_3,
+    state_dec_value_1,
+    state_dec_value_2,
+    state_dec_value_3,
+    state_write_1,
+    state_write_2,
+    state_read_1,
+    state_read_2
   );
 
   signal state : t_state;
@@ -178,9 +186,9 @@ begin
     if (mx2_sel = "00") then
       DATA_WDATA <= IN_DATA;
     elsif (mx2_sel = "01") then
-      DATA_WDATA <= DATA_RDATA + 1;
-    elsif (mx2_sel = "10") then
       DATA_WDATA <= DATA_RDATA - 1;
+    elsif (mx2_sel = "10") then
+      DATA_WDATA <= DATA_RDATA + 1;
     else
       DATA_WDATA <= "00000000";
     end if;
@@ -236,7 +244,7 @@ begin
     end if;
   end process;
 
-  state_logic: process (state, IN_VLD, DATA_RDATA)
+  state_logic: process (state, IN_VLD, OUT_BUSY, DATA_RDATA)
   begin
     next_state <= state_startup;
     
@@ -263,15 +271,20 @@ begin
     case state is
       when state_startup =>
         READY <= '0';
-        next_state <= state_init;
+        next_state <= state_init_1;
 
-      when state_init =>
-        next_state <= state_decode;
+      when state_init_1 =>
+        READY <= '0';
+        mx1_sel <= '0';
+        next_state <= state_init_2;
         if (DATA_RDATA = "01000000") then
-          READY <= '0';
           next_state <= state_decode;
         end if;
-        pc_inc <= '1';
+
+      when state_init_2 =>
+        mx1_sel <= '0';
+        ptr_inc <= '1';
+        next_state <= state_init_1;
 
       when state_next_symbol =>
         pc_inc <= '1';
@@ -279,9 +292,9 @@ begin
 
       when state_decode =>
         case DATA_RDATA is
-          when "00000000" =>
+          when "01000000" =>
             next_state <= state_end;
-            
+          
           when "00111110" =>
             next_state <= state_inc_ptr;
 
@@ -292,19 +305,19 @@ begin
             next_state <= state_inc_value_1;
 
           when "00101101" =>
-            next_state <= state_dec_value;
+            next_state <= state_dec_value_1;
 
-          -- when "00101000" =>
-          --   next_state <= state_loop_start;
+          when "00101110" =>
+            next_state <= state_write_1;
 
-          -- when "00101100" =>
-          --   next_state <= state_loop_end;
+          when "00101100" =>
+            next_state <= state_read_1;
 
-          -- when "00111001" =>
-          --   next_state <= state_read;
+          when "01011011" =>
+            next_state <= state_loop_start;
 
-          -- when "00110001" =>
-          --   next_state <= state_write;
+          when "01011101" =>
+            next_state <= state_loop_end;
           
 
           when others =>
@@ -321,17 +334,66 @@ begin
 
       when state_inc_value_1 =>
         mx1_sel <= '0';
-        old_data <= DATA_RDATA;
         next_state <= state_inc_value_2;
 
       when state_inc_value_2 =>
+        mx1_sel <= '0';
+        mx2_sel <= "10";
+        next_state <= state_inc_value_3;
+
+      when state_inc_value_3 => -- can be merged with state_inc_value_2
+        mx1_sel <= '0';
+        mx2_sel <= "10";
+        DATA_RDWR <= '1';
+        next_state <= state_next_symbol;
+
+      when state_dec_value_1 =>
+        mx1_sel <= '0';
+        next_state <= state_dec_value_2;
+
+      when state_dec_value_2 =>
+        mx1_sel <= '0';
+        mx2_sel <= "01";
+        next_state <= state_dec_value_3;
+
+      when state_dec_value_3 => -- can be merged with state_dec_value_2
+        mx1_sel <= '0';
         mx2_sel <= "01";
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
 
-      when state_dec_value =>
-        cnt_dec <= '1';
+      when state_write_1 =>
+        if (OUT_BUSY = '0') then
+          mx1_sel <= '0';
+          OUT_WE <= '1';
+          next_state <= state_write_2;
+        else
+          next_state <= state_write_1;
+        end if;
+
+      when state_write_2 =>
+        mx1_sel <= '0';
+        OUT_WE <= '1';
+        OUT_DATA <= DATA_RDATA;
         next_state <= state_next_symbol;
+
+      when state_read_1 =>
+        IN_REQ <= '1';
+        if (IN_VLD = '1') then
+          mx1_sel <= '0';
+          mx2_sel <= "00";
+          next_state <= state_read_2;
+        else
+          next_state <= state_read_1;
+        end if;
+
+      when state_read_2 =>
+        mx1_sel <= '0';
+        mx2_sel <= "00";
+        DATA_RDWR <= '1';
+        next_state <= state_next_symbol;
+
+
 
       when state_end =>
         DONE <= '1';
