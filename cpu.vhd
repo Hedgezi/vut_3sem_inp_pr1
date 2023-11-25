@@ -97,7 +97,8 @@ architecture behavioral of cpu is
     state_loop_end_3,
     state_loop_end_4,
     state_break_1,
-    state_break_2
+    state_break_2,
+    state_break_3
   );
 
   signal state : t_state;
@@ -398,15 +399,24 @@ begin
         end if;
 
 
-      when state_break_1 => 
-        pc_inc <= '1';
+      when state_break_1 =>
+        cnt_rst <= '1';
         next_state <= state_break_2;
 
-      when state_break_2 =>
-        if (DATA_RDATA = "01011101") then
+      when state_break_2 => 
+        pc_inc <= '1';
+        next_state <= state_break_3;
+
+      when state_break_3 =>
+        if (DATA_RDATA = "01011101") and (cnt_out = "00000000") then
           next_state <= state_predecode;
         else
-          next_state <= state_break_1;
+          next_state <= state_break_2;
+          if (DATA_RDATA = "01011011") then
+            cnt_inc <= '1';
+          elsif (DATA_RDATA = "01011101") then
+            cnt_dec <= '1';
+          end if;
         end if;
 
 
