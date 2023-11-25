@@ -40,47 +40,9 @@ entity cpu is
  );
 end cpu;
 
--- -- mux2: 2-to-1 multiplexer with 12-bit data input and output
--- entity mux2 is
---  port (
---   SEL : in std_logic;
---   IN0 : in std_logic_vector(11 downto 0);
---   IN1 : in std_logic_vector(11 downto 0);
---   OUTP : out std_logic_vector(11 downto 0)
---  );
--- end mux2;
-
--- -- mux4: 4-to-1 multiplexer with 8-bit data input and output
--- entity mux4 is
---  port (
---   SEL : in std_logic_vector(1 downto 0);
---   IN0 : in std_logic_vector(7 downto 0);
---   IN1 : in std_logic_vector(7 downto 0);
---   IN2 : in std_logic_vector(7 downto 0);
---   IN3 : in std_logic_vector(7 downto 0);
---   OUTP : out std_logic_vector(7 downto 0)
---  );
--- end mux4;
-
-
 -- ----------------------------------------------------------------------------
 --                      Architecture declaration
 -- ----------------------------------------------------------------------------
--- architecture dataflow of mux2 is
--- begin
---   OUTP <= IN0 when SEL = '0' else IN1;
--- end dataflow;
-
--- architecture dataflow of mux4 is
--- begin
---   OUTP <= IN0 when SEL = "00" else
---           IN1 when SEL = "01" else
---           IN2 when SEL = "10" else
---           IN3;
--- end dataflow;
-
-
-
 architecture behavioral of cpu is
 
  -- pri tvorbe kodu reflektujte rady ze cviceni INP, zejmena mejte na pameti, ze 
@@ -101,37 +63,19 @@ architecture behavioral of cpu is
   signal cnt_out : std_logic_vector(7 downto 0);
   signal cnt_inc : std_logic;
   signal cnt_dec : std_logic;
+  signal cnt_rst : std_logic;
 
   signal mx1_sel : std_logic;
   signal mx2_sel : std_logic_vector(1 downto 0);
 
-  signal old_data : std_logic_vector(7 downto 0);
-
-  -- component mux2
-  --   port (
-  --     SEL : in std_logic;
-  --     IN0 : in std_logic_vector(11 downto 0);
-  --     IN1 : in std_logic_vector(11 downto 0);
-  --     OUTP : out std_logic_vector(11 downto 0)
-  --   );
-  -- end component;
-
-  -- component mux4
-  --   port (
-  --     SEL : in std_logic_vector(1 downto 0);
-  --     IN0 : in std_logic_vector(7 downto 0);
-  --     IN1 : in std_logic_vector(7 downto 0);
-  --     IN2 : in std_logic_vector(7 downto 0);
-  --     IN3 : in std_logic_vector(7 downto 0);
-  --     OUTP : out std_logic_vector(7 downto 0)
-  --   );
-  -- end component;
+  signal s : std_logic_vector(7 downto 0);
 
   type t_state is (
     state_startup,
     state_init_1,
     state_init_2,
     state_next_symbol,
+    state_predecode,
     state_decode,
     state_end,
     state_inc_ptr,
@@ -146,30 +90,18 @@ architecture behavioral of cpu is
     state_read_2,
     state_loop_start_1,
     state_loop_start_2,
+    state_loop_start_3,
     state_loop_end_1,
-    state_loop_end_2
+    state_loop_end_2,
+    state_loop_end_3,
+    state_loop_end_4,
+    state_loop_end_5
   );
 
   signal state : t_state;
   signal next_state : t_state;
 
 begin
-
-  -- mx1: mux2 port map (
-  --   SEL => mx1_sel,
-  --   IN0 => ptr_out,
-  --   IN1 => pc_out,
-  --   OUTP => mx1_out
-  -- );
-
-  -- mx2: mux4 port map (
-  --   SEL => mx2_sel,
-  --   IN0 => IN_DATA,
-  --   IN1 => DATA_RDATA,
-  --   IN2 => DATA_RDATA,
-  --   IN3 => "00000000",
-  --   OUTP => mx2_out
-  -- );
 
   mx1: process (mx1_sel, ptr_out, pc_out)
   begin
@@ -233,6 +165,8 @@ begin
         cnt_out <= cnt_out + 1;
       elsif (cnt_dec = '1') then
         cnt_out <= cnt_out - 1;
+      elsif (cnt_rst = '1') then
+        cnt_out <= (others => '0');
       end if;
     end if;
   end process;
@@ -252,6 +186,7 @@ begin
     
     cnt_inc <= '0';
     cnt_dec <= '0';
+    cnt_rst <= '0';
     ptr_inc <= '0';
     ptr_dec <= '0';
     ptr_rst <= '0';
@@ -280,7 +215,7 @@ begin
         mx1_sel <= '0';
         next_state <= state_init_2;
         if (DATA_RDATA = "01000000") then
-          next_state <= state_decode;
+          next_state <= state_predecode;
         end if;
 
       when state_init_2 =>
@@ -290,6 +225,9 @@ begin
 
       when state_next_symbol =>
         pc_inc <= '1';
+        next_state <= state_predecode;
+
+      when state_predecode =>
         next_state <= state_decode;
 
       when state_decode =>
@@ -316,10 +254,10 @@ begin
             next_state <= state_read_1;
 
           when "01011011" =>
-            next_state <= state_loop_start;
+            next_state <= state_loop_start_1;
 
           when "01011101" =>
-            next_state <= state_loop_end;
+            next_state <= state_loop_end_1;
           
 
           when others =>
@@ -357,7 +295,6 @@ begin
       when state_write_1 =>
         if (OUT_BUSY = '0') then
           mx1_sel <= '0';
-          OUT_WE <= '1';
           next_state <= state_write_2;
         else
           next_state <= state_write_1;
@@ -385,6 +322,66 @@ begin
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
 
+      when state_loop_start_1 =>
+        pc_inc <= '1';
+        mx1_sel <= '0';
+        cnt_rst <= '1';
+        next_state <= state_loop_start_2;
+
+      when state_loop_start_2 =>
+        mx1_sel <= '0';
+        if (DATA_RDATA = "00000000") then
+          cnt_inc <= '1';
+          next_state <= state_loop_start_3;
+        else
+          next_state <= state_predecode;
+        end if;
+
+      when state_loop_start_3 =>
+        if (cnt_out = "00000000") then
+          next_state <= state_predecode;
+        else
+          if (DATA_RDATA = "01011011") then
+            cnt_inc <= '1';
+          elsif (DATA_RDATA = "01011101") then
+            cnt_dec <= '1';
+          end if;
+          pc_inc <= '1';
+          next_state <= state_loop_start_3;
+        end if;
+
+      when state_loop_end_1 =>
+        mx1_sel <= '0';
+        cnt_rst <= '1';
+        next_state <= state_loop_end_2;
+
+      when state_loop_end_2 =>
+        mx1_sel <= '0';
+        if (DATA_RDATA = "00000000") then
+          pc_inc <= '1';
+          next_state <= state_predecode;
+        else
+          cnt_inc <= '1';
+          pc_dec <= '1';
+          next_state <= state_loop_end_3;
+        end if;
+
+      when state_loop_end_3 =>
+        if (cnt_out = "00000000") then
+          pc_inc <= '1';
+          next_state <= state_predecode;
+        else
+          pc_dec <= '1';
+          next_state <= state_loop_end_4;
+        end if;
+
+      when state_loop_end_4 =>
+        next_state <= state_loop_end_3;
+        if (DATA_RDATA = "01011101") then
+          cnt_inc <= '1';
+        elsif (DATA_RDATA = "01011011") then
+          cnt_dec <= '1';
+        end if;
 
 
       when state_end =>
