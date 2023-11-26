@@ -78,8 +78,6 @@ architecture behavioral of cpu is
     state_predecode,
     state_decode,
     state_end,
-    state_inc_ptr,
-    state_dec_ptr,
     state_inc_value_1,
     state_dec_value_1,
     state_write_1,
@@ -89,11 +87,9 @@ architecture behavioral of cpu is
     state_loop_start_1,
     state_loop_start_2,
     state_loop_start_3,
-    state_loop_start_4,
     state_loop_end_1,
     state_loop_end_2,
     state_loop_end_3,
-    state_loop_end_4,
     state_break_1,
     state_break_2,
     state_break_3
@@ -238,10 +234,12 @@ begin
             next_state <= state_end;
           
           when "00111110" =>
-            next_state <= state_inc_ptr;
+            ptr_inc <= '1';
+            next_state <= state_next_symbol;
 
           when "00111100" =>
-            next_state <= state_dec_ptr;
+            ptr_dec <= '1';
+            next_state <= state_next_symbol;
 
           when "00101011" =>
             mx1_sel <= '0';
@@ -258,26 +256,23 @@ begin
             next_state <= state_read_1;
 
           when "01011011" =>
+            pc_inc <= '1';
+            mx1_sel <= '0';
+            cnt_rst <= '1';
             next_state <= state_loop_start_1;
 
           when "01011101" =>
+            mx1_sel <= '0';
+            cnt_rst <= '1';
             next_state <= state_loop_end_1;
 
           when "01111110" =>
+            cnt_rst <= '1';
             next_state <= state_break_1;
-          
 
           when others =>
             next_state <= state_next_symbol;
         end case;
-
-      when state_inc_ptr =>
-        ptr_inc <= '1';
-        next_state <= state_next_symbol;
-
-      when state_dec_ptr =>
-        ptr_dec <= '1';
-        next_state <= state_next_symbol;
 
 
       when state_inc_value_1 =>
@@ -325,32 +320,25 @@ begin
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
 
-
       when state_loop_start_1 =>
-        pc_inc <= '1';
-        mx1_sel <= '0';
-        cnt_rst <= '1';
-        next_state <= state_loop_start_2;
-
-      when state_loop_start_2 =>
         mx1_sel <= '0';
         if (DATA_RDATA = "00000000") then
           cnt_inc <= '1';
-          next_state <= state_loop_start_3;
+          next_state <= state_loop_start_2;
         else
           next_state <= state_predecode;
         end if;
 
-      when state_loop_start_3 =>
+      when state_loop_start_2 =>
         if (cnt_out = "00000000") then
           next_state <= state_predecode;
         else
           pc_inc <= '1';
-          next_state <= state_loop_start_4;
+          next_state <= state_loop_start_3;
         end if;
 
-      when state_loop_start_4 =>
-        next_state <= state_loop_start_3;
+      when state_loop_start_3 =>
+        next_state <= state_loop_start_2;
         if (DATA_RDATA = "01011011") then
           cnt_inc <= '1';
         elsif (DATA_RDATA = "01011101") then
@@ -360,31 +348,26 @@ begin
 
       when state_loop_end_1 =>
         mx1_sel <= '0';
-        cnt_rst <= '1';
-        next_state <= state_loop_end_2;
-
-      when state_loop_end_2 =>
-        mx1_sel <= '0';
         if (DATA_RDATA = "00000000") then
           pc_inc <= '1';
           next_state <= state_predecode;
         else
           cnt_inc <= '1';
           pc_dec <= '1';
-          next_state <= state_loop_end_3;
+          next_state <= state_loop_end_2;
         end if;
 
-      when state_loop_end_3 =>
+      when state_loop_end_2 =>
         if (cnt_out = "00000000") then
           pc_inc <= '1';
           next_state <= state_predecode;
         else
           pc_dec <= '1';
-          next_state <= state_loop_end_4;
+          next_state <= state_loop_end_3;
         end if;
 
-      when state_loop_end_4 =>
-        next_state <= state_loop_end_3;
+      when state_loop_end_3 =>
+        next_state <= state_loop_end_2;
         if (DATA_RDATA = "01011101") then
           cnt_inc <= '1';
         elsif (DATA_RDATA = "01011011") then
@@ -392,19 +375,15 @@ begin
         end if;
 
 
-      when state_break_1 =>
-        cnt_rst <= '1';
+      when state_break_1 => 
+        pc_inc <= '1';
         next_state <= state_break_2;
 
-      when state_break_2 => 
-        pc_inc <= '1';
-        next_state <= state_break_3;
-
-      when state_break_3 =>
+      when state_break_2 =>
         if (DATA_RDATA = "01011101") and (cnt_out = "00000000") then
           next_state <= state_predecode;
         else
-          next_state <= state_break_2;
+          next_state <= state_break_1;
           if (DATA_RDATA = "01011011") then
             cnt_inc <= '1';
           elsif (DATA_RDATA = "01011101") then
