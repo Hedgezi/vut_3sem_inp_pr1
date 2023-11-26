@@ -320,6 +320,7 @@ begin
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
 
+        
       when state_loop_start_1 =>
         mx1_sel <= '0';
         if (DATA_RDATA = "00000000") then
