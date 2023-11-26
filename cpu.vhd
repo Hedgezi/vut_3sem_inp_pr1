@@ -1,7 +1,7 @@
 -- cpu.vhd: Simple 8-bit CPU (BrainFuck interpreter)
 -- Copyright (C) 2023 Brno University of Technology,
 --                    Faculty of Information Technology
--- Author(s): Mykola Vorontsov <login AT stud.fit.vutbr.cz>
+-- Author(s): Mykola Vorontsov <xvoron03 AT stud.fit.vutbr.cz>
 --
 library IEEE;
 use IEEE.std_logic_1164.all;
@@ -81,9 +81,7 @@ architecture behavioral of cpu is
     state_inc_ptr,
     state_dec_ptr,
     state_inc_value_1,
-    state_inc_value_2,
     state_dec_value_1,
-    state_dec_value_2,
     state_write_1,
     state_write_2,
     state_read_1,
@@ -226,6 +224,7 @@ begin
         ptr_inc <= '1';
         next_state <= state_init_1;
 
+
       when state_next_symbol =>
         pc_inc <= '1';
         next_state <= state_predecode;
@@ -245,9 +244,11 @@ begin
             next_state <= state_dec_ptr;
 
           when "00101011" =>
+            mx1_sel <= '0';
             next_state <= state_inc_value_1;
 
           when "00101101" =>
+            mx1_sel <= '0';
             next_state <= state_dec_value_1;
 
           when "00101110" =>
@@ -281,20 +282,12 @@ begin
 
       when state_inc_value_1 =>
         mx1_sel <= '0';
-        next_state <= state_inc_value_2;
-
-      when state_inc_value_2 =>
-        mx1_sel <= '0';
         mx2_sel <= "10";
         DATA_RDWR <= '1';
         next_state <= state_next_symbol;
 
 
       when state_dec_value_1 =>
-        mx1_sel <= '0';
-        next_state <= state_dec_value_2;
-
-      when state_dec_value_2 =>
         mx1_sel <= '0';
         mx2_sel <= "01";
         DATA_RDWR <= '1';
